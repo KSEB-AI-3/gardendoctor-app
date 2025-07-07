@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # farmbootcamp
 
 A new Flutter project.
@@ -14,3 +15,6 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# gardendoctor-app
+>>>>>>> 15029ac17768f215fcb55fea941c527244887634
