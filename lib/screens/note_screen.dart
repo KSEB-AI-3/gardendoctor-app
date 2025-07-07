@@ -28,7 +28,7 @@ class _NoteScreenState extends State<NoteScreen> {
   final List<MyRegisteredPlant> _myRegisteredPlants = [
     MyRegisteredPlant(nickname: '내 첫 토마토', imagePath: 'assets/images/토마토.png'),
     MyRegisteredPlant(nickname: '베란다 참외', imagePath: 'assets/images/참외.png'),
-    MyRegisteredPlant(nickname: '옥상 깻잎', imagePath: 'assets/images/깻잎.png'),
+    MyRegisteredPlant(nickname: '옥상 포도', imagePath: 'assets/images/포도.png'),
     MyRegisteredPlant(nickname: '미니 단호박', imagePath: 'assets/images/단호박.png'),
   ];
   String? _selectedMyPlant;
@@ -84,10 +84,10 @@ class _NoteScreenState extends State<NoteScreen> {
     String formattedDate = DateFormat('yyyy. MM. dd (E)', 'ko_KR').format(widget.selectedDate);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFDFCF8), // 따뜻한 종이 느낌의 배경색
+      backgroundColor: const Color(0xFFFDFCF8),
       appBar: AppBar(
         title: Text('오늘의 일지', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF81C784), // 부드러운 녹색
+        backgroundColor: const Color(0xFF81C784),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -152,7 +152,7 @@ class _NoteScreenState extends State<NoteScreen> {
       value: _selectedMyPlant,
       hint: Text('어떤 식물의 기록인가요?', style: GoogleFonts.gaegu(color: Colors.grey[600])),
       decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.grass_rounded, color: Color(0xFF2ECC71)),
+        prefixIcon: const Icon(Icons.filter_vintage_rounded, color: Color(0xFF2ECC71)),
         filled: true,
         fillColor: Colors.green.withOpacity(0.05),
         border: OutlineInputBorder(
