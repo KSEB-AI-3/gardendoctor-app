@@ -20,6 +20,12 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  // 필터링을 위한 상태 변수
+  String? _selectedPlantFilter;
+
+  // 등록된 식물 목록 (임시 데이터)
+  final List<String> _myRegisteredPlants = ['내 첫 토마토', '베란다 참외', '옥상 깻잎', '미니 단호박'];
+
   @override
   void initState() {
     super.initState();
@@ -40,9 +46,14 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
     super.dispose();
   }
 
+  // 필터링된 이벤트 목록을 가져오는 함수
   List<Note> _getEventsForDay(DateTime day) {
     DateTime normalizedDay = DateTime(day.year, day.month, day.day);
-    return _events[normalizedDay] ?? [];
+    final allNotes = _events[normalizedDay] ?? [];
+    if (_selectedPlantFilter == null) {
+      return allNotes;
+    }
+    return allNotes.where((note) => note.registeredPlantNickname == _selectedPlantFilter).toList();
   }
 
   void _addOrUpdateNote(Note newNote) {
@@ -78,7 +89,8 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      elevation: 0,
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.1),
       backgroundColor: Colors.white,
       foregroundColor: Colors.black,
       title: Text(
@@ -89,12 +101,45 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
           color: Colors.black87,
         ),
       ),
+      actions: [
+        _buildFilterButton(),
+      ],
     );
   }
 
+  // 필터 버튼 위젯
+  Widget _buildFilterButton() {
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.filter_list_rounded, color: _selectedPlantFilter != null ? const Color(0xFF2ECC71) : Colors.grey[600]),
+      onSelected: (String result) {
+        setState(() {
+          if (result == 'all') {
+            _selectedPlantFilter = null;
+          } else {
+            _selectedPlantFilter = result;
+          }
+        });
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(
+          value: 'all',
+          child: Text('모든 식물 보기', style: GoogleFonts.gaegu()),
+        ),
+        const PopupMenuDivider(),
+        ..._myRegisteredPlants.map((String plantName) {
+          return PopupMenuItem<String>(
+            value: plantName,
+            child: Text(plantName, style: GoogleFonts.gaegu()),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+
   Widget _buildCalendarCard() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -162,6 +207,19 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
               color: Colors.grey[800],
             ),
           ),
+          if (_selectedPlantFilter != null)
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2ECC71).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '🌱 $_selectedPlantFilter',
+                style: GoogleFonts.gaegu(fontSize: 12, color: const Color(0xFF27AE60), fontWeight: FontWeight.bold),
+              ),
+            ),
           const Spacer(),
           Text(
             '${_getEventsForDay(_selectedDay!).length}개의 기록',
@@ -192,7 +250,7 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
           Icon(Icons.edit_note, size: 60, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
-            '이 날짜에 작성된 일지가 없어요',
+            _selectedPlantFilter == null ? '이 날짜에 작성된 일지가 없어요' : '선택된 식물의 일지가 없어요',
             style: GoogleFonts.gaegu(fontSize: 18, color: Colors.grey[600]),
           ),
         ],
@@ -223,7 +281,6 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
                 children: [
                   Row(
                     children: [
-                      // 식물 태그
                       if (note.registeredPlantNickname != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -241,7 +298,6 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
                           ),
                         ),
                       const Spacer(),
-                      // 관리 아이콘
                       Row(
                         children: [
                           if (note.watered) _buildCareIcon(Icons.water_drop_rounded, const Color(0xFF3498DB)),
