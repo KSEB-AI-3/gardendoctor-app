@@ -24,7 +24,7 @@ class _DailyLogScreenState extends State<DailyLogScreen> with TickerProviderStat
   String? _selectedPlantFilter;
 
   // 등록된 식물 목록 (임시 데이터)
-  final List<String> _myRegisteredPlants = ['내 첫 토마토', '베란다 참외', '옥상 깻잎', '미니 단호박'];
+  final List<String> _myRegisteredPlants = ['내 첫 토마토', '베란다 참외', '옥상 포도', '미니 단호박'];
 
   @override
   void initState() {
