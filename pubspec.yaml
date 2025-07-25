@@ -30,13 +30,20 @@ dependencies:
 
   # OAuth 로그인
   google_sign_in: ^5.4.0
-  kakao_flutter_sdk_user: ^1.5.0
-  flutter_naver_login: ^2.1.1
+  kakao_flutter_sdk_user: ^1.9.1+1
 
-  # ✅ 토큰 저장을 위한 shared_preferences 추가
+  # 토큰 저장
   shared_preferences: ^2.2.3
-  # ✅ 서버 통신을 위한 http 패키지 추가!
+
+  # 서버 통신
   http: ^1.2.1
+
+  # 위치 정보
+  geolocator: ^11.0.0
+
+  # ✅ 네이티브 카카오맵 SDK로 변경
+  kakao_map_plugin: ^0.3.7
+
 
 dev_dependencies:
   flutter_test:
