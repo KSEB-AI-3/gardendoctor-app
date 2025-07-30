@@ -50,8 +50,8 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
-  build_runner: ^2.4.6
-  retrofit_generator: ^8.0.2
+  build_runner: ^2.4.8          # ← 최신
+  retrofit_generator: ^8.0.4    # ← 최신 (중요)
   json_serializable: ^6.7.1
 
 flutter:

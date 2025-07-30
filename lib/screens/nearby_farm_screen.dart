@@ -43,7 +43,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
     }
 
     final dio = Dio(BaseOptions(
-      baseUrl: 'http://172.16.132.202:8080',
+      baseUrl: 'http://172.16.183.114:8080',
       connectTimeout: const Duration(seconds: 8),
       receiveTimeout: const Duration(seconds: 8),
     ));
@@ -75,7 +75,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
     } else {
       filteredFarmList = farmList.where((farm) {
         if (farm == null) return false;
-        final name = (farm.name ?? '').toLowerCase();
+        final name = (farm.farmName ?? '').toLowerCase(); // 변경!
         final address = (farm.roadNameAddress ?? '').toLowerCase();
         final operator = (farm.operator ?? '').toLowerCase();
 
@@ -155,7 +155,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
           final marker = Marker(
             markerId: 'farm_${farm.gardenUniqueId ?? i}_$i',
             latLng: LatLng(lat, lng),
-            infoWindowContent: farm.name ?? '텃밭 $i',
+            infoWindowContent: farm.farmName ?? '텃밭 $i', // 변경!
             width: 35,
             height: 45,
           );
@@ -291,11 +291,14 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
     }
 
     try {
-      _scrollController?.animateTo(
-        0.3,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      final currentSize = _scrollController?.size ?? 0.35;
+      if (currentSize > 0.6) {
+        _scrollController?.animateTo(
+          0.35,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     } catch (e) {
       print('Scroll animation error: $e');
     }
@@ -336,7 +339,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
-                        farm.name ?? '텃밭',
+                        farm.farmName ?? '텃밭', // 변경!
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -800,7 +803,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        farm.name ?? '이름 없음',
+                        farm.farmName ?? '이름 없음', // 변경!
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,

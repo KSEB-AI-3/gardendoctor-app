@@ -1,5 +1,3 @@
-// lib/screens/farm_list_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../models/farm_model.dart';
@@ -21,7 +19,7 @@ class _FarmListScreenState extends State<FarmListScreen> {
   void initState() {
     super.initState();
     final dio = Dio(BaseOptions(
-      baseUrl: 'http://172.16.132.202:8080',
+      baseUrl: 'http://172.16.183.114:8080',
       connectTimeout: const Duration(seconds: 8),
       receiveTimeout: const Duration(seconds: 8),
     ));
@@ -55,7 +53,7 @@ class _FarmListScreenState extends State<FarmListScreen> {
         itemBuilder: (context, index) {
           final farm = farmList[index];
           return ListTile(
-            title: Text(farm.name ?? '텃밭 이름 없음'),
+            title: Text(farm.farmName ?? '텃밭 이름 없음'), // name → farmName
             subtitle: Text(farm.roadNameAddress ?? '주소 없음'),
           );
         },

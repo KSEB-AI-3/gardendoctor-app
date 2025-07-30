@@ -1,8 +1,7 @@
-// lib/models/farm_model.dart
 class Farm {
   final int gardenUniqueId;
   final String? operator;
-  final String? name;
+  final String? farmName;   // name → farmName 변경
   final String? roadNameAddress;
   final String? lotNumberAddress;
   final String? facilities;
@@ -15,7 +14,7 @@ class Farm {
   Farm({
     required this.gardenUniqueId,
     this.operator,
-    this.name,
+    this.farmName,            // name → farmName
     this.roadNameAddress,
     this.lotNumberAddress,
     this.facilities,
@@ -30,7 +29,7 @@ class Farm {
     return Farm(
       gardenUniqueId: json['gardenUniqueId'],
       operator: json['operator'],
-      name: json['name'],
+      farmName: json['farmName'],              // name → farmName
       roadNameAddress: json['roadNameAddress'],
       lotNumberAddress: json['lotNumberAddress'],
       facilities: json['facilities'],
