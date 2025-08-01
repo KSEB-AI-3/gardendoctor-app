@@ -28,9 +28,12 @@ dependencies:
   retrofit: ^4.0.1
   json_annotation: ^4.9.0
 
-  # OAuth 로그인
-  google_sign_in: ^5.4.0
-  kakao_flutter_sdk_user: ^1.9.1+1
+  # OAuth2 인증용 (딥링크 플로우)
+  flutter_web_auth_2: ^4.1.0
+
+  # ✅ 기기 정보 확인용 (추가됨)
+  device_info_plus: ^10.1.0
+
 
   # 토큰 저장
   shared_preferences: ^2.2.3
@@ -41,17 +44,18 @@ dependencies:
   # 위치 정보
   geolocator: ^11.0.0
 
-  # ✅ 네이티브 카카오맵 SDK로 변경
+  # 네이티브 카카오맵 SDK로 변경
+  kakao_flutter_sdk_user: ^1.9.1+1
   kakao_map_plugin: ^0.3.7
 
-
+  http_parser: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
-  build_runner: ^2.4.8          # ← 최신
-  retrofit_generator: ^8.0.4    # ← 최신 (중요)
+  build_runner: ^2.4.8
+  retrofit_generator: ^8.0.4
   json_serializable: ^6.7.1
 
 flutter:

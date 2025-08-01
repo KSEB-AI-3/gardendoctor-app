@@ -8,10 +8,9 @@ part of 'user_plant_model.dart';
 
 UserPlantResponse _$UserPlantResponseFromJson(Map<String, dynamic> json) =>
     UserPlantResponse(
-      userPlantId: (json['userPlantId'] as num).toInt(),
-      userId: (json['userId'] as num).toInt(),
+      userPlantId: (json['userPlantId'] as num?)?.toInt(),
       plantName: json['plantName'] as String?,
-      nickname: json['nickname'] as String?,
+      plantNickname: json['plantNickname'] as String?,
       plantingPlace: json['plantingPlace'] as String?,
       plantedDate: json['plantedDate'] as String?,
       notes: json['notes'] as String?,
@@ -25,9 +24,8 @@ UserPlantResponse _$UserPlantResponseFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$UserPlantResponseToJson(UserPlantResponse instance) =>
     <String, dynamic>{
       'userPlantId': instance.userPlantId,
-      'userId': instance.userId,
       'plantName': instance.plantName,
-      'nickname': instance.nickname,
+      'plantNickname': instance.plantNickname,
       'plantingPlace': instance.plantingPlace,
       'plantedDate': instance.plantedDate,
       'notes': instance.notes,

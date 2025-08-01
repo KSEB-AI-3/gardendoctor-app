@@ -41,7 +41,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         _isLoading = false;
       });
       print("사용자 정보 조회 성공: ${_user?.email}");
-    } on DioError catch (e) {
+    } on DioException catch (e) {
       print("사용자 정보 조회 DioError: ${e.response?.statusCode} - ${e.response?.data}");
       setState(() {
         _errorMessage = '사용자 정보를 불러오지 못했습니다. (${e.response?.statusCode ?? e.type.toString()})';
@@ -83,7 +83,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
               (Route<dynamic> route) => false,
         );
       }
-    } on DioError catch (e) {
+    } on DioException catch (e) {
       print("로그아웃 DioError: ${e.response?.statusCode} - ${e.response?.data}");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('로그아웃 실패: ${e.response?.data['message'] ?? e.response?.statusCode}')),

@@ -4,25 +4,22 @@ part 'user_plant_model.g.dart';
 
 @JsonSerializable()
 class UserPlantResponse {
-  final int userPlantId;
-  final int userId;
+  final int? userPlantId;
   final String? plantName;
-  final String? nickname;
+  final String? plantNickname;
   final String? plantingPlace;
-  final String? plantedDate; // DateTime으로 파싱하려면 별도 로직 필요
+  final String? plantedDate;
   final String? notes;
   final String? userPlantImageUrl;
-
   final String? plantEnglishName;
   final String? species;
   final String? season;
   final String? plantImageUrl;
 
   UserPlantResponse({
-    required this.userPlantId,
-    required this.userId,
+    this.userPlantId,
     this.plantName,
-    this.nickname,
+    this.plantNickname,
     this.plantingPlace,
     this.plantedDate,
     this.notes,

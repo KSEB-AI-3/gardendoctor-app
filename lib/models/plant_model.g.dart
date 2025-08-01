@@ -8,8 +8,8 @@ part of 'plant_model.dart';
 
 Plant _$PlantFromJson(Map<String, dynamic> json) => Plant(
       plantId: (json['plantId'] as num).toInt(),
-      name: json['name'] as String?,
-      englishName: json['englishName'] as String?,
+      plantName: json['plantName'] as String?,
+      plantEnglishName: json['plantEnglishName'] as String?,
       species: json['species'] as String?,
       season: json['season'] as String?,
       imageUrl: json['imageUrl'] as String?,
@@ -17,8 +17,8 @@ Plant _$PlantFromJson(Map<String, dynamic> json) => Plant(
 
 Map<String, dynamic> _$PlantToJson(Plant instance) => <String, dynamic>{
       'plantId': instance.plantId,
-      'name': instance.name,
-      'englishName': instance.englishName,
+      'plantName': instance.plantName,
+      'plantEnglishName': instance.plantEnglishName,
       'species': instance.species,
       'season': instance.season,
       'imageUrl': instance.imageUrl,

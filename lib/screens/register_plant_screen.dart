@@ -1,9 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'confirmation_screen.dart';
 
-// 샘플 식물 데이터를 위한 클래스
 class PlantSample {
   final String name;
   final String imagePath;
@@ -21,6 +21,7 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
   final TextEditingController _customPlantController = TextEditingController();
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController(); // ★ 메모 필드 추가
   final ImagePicker _picker = ImagePicker();
 
   String? _selectedPlantName;
@@ -42,6 +43,51 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
     PlantSample(name: '참외', imagePath: 'assets/images/참외.png'),
   ];
 
+  @override
+  void dispose() {
+    _customPlantController.dispose();
+    _nicknameController.dispose();
+    _locationController.dispose();
+    _notesController.dispose(); // ★ 메모 컨트롤러 해제
+    super.dispose();
+  }
+
+  void _navigateToConfirmation() {
+    final plantType = _selectedPlantName ?? _customPlantName;
+    if (plantType == null || plantType.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('식물 종류를 선택해주세요!', style: GoogleFonts.gaegu())));
+      return;
+    }
+    if (_nicknameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('별명을 입력해주세요!', style: GoogleFonts.gaegu())));
+      return;
+    }
+    if (_locationController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('키우는 장소를 입력해주세요!', style: GoogleFonts.gaegu())));
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConfirmationScreen(
+          plantType: plantType,
+          nickname: _nicknameController.text,
+          location: _locationController.text,
+          notes: _notesController.text, // ★ 메모 전달
+          imageFile: _imageFile,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (pickedFile != null) {
+      setState(() => _imageFile = pickedFile);
+    }
+  }
+
   void _showCustomPlantDialog() {
     showDialog(
       context: context,
@@ -55,18 +101,12 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
             hintStyle: GoogleFonts.gaegu(color: Colors.grey),
             filled: true,
             fillColor: Colors.grey[100],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
           style: GoogleFonts.gaegu(fontSize: 16),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('취소', style: GoogleFonts.gaegu()),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('취소', style: GoogleFonts.gaegu())),
           TextButton(
             onPressed: () {
               if (_customPlantController.text.isNotEmpty) {
@@ -84,21 +124,6 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
     );
   }
 
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (pickedFile != null) {
-      setState(() => _imageFile = pickedFile);
-    }
-  }
-
-  @override
-  void dispose() {
-    _customPlantController.dispose();
-    _nicknameController.dispose();
-    _locationController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,36 +133,48 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSection(
               title: '어떤 식물인가요?',
               subtitle: '키우실 식물 종류를 선택하거나 직접 입력해주세요.',
               content: _buildPlantSelectionContent(),
             ),
-            _buildAnimatedSection(
-              isVisible: _selectedPlantName != null || (_customPlantName != null && _customPlantName!.isNotEmpty),
-              content: _buildSection(
-                title: '별명이 뭔가요?',
-                subtitle: '식물에게 특별한 이름을 지어주세요.',
-                content: _buildNicknameInput(),
-              ),
+            _buildSection(
+              title: '별명이 뭔가요?',
+              subtitle: '식물에게 특별한 이름을 지어주세요.',
+              content: _buildNicknameInput(),
             ),
-            _buildAnimatedSection(
-              isVisible: _nicknameController.text.isNotEmpty,
-              content: _buildSection(
-                title: '어디서 키우나요?',
-                subtitle: '식물을 키우는 장소를 알려주세요.',
-                content: _buildLocationInput(),
-              ),
+            _buildSection(
+              title: '어디서 키우나요?',
+              subtitle: '식물을 키우는 장소를 알려주세요.',
+              content: _buildLocationInput(),
             ),
-            _buildAnimatedSection(
-              isVisible: _locationController.text.isNotEmpty,
-              content: _buildSection(
-                title: '사진을 등록해주세요',
-                subtitle: '식물의 대표 사진을 선택해주세요.',
-                content: _buildPhotoInput(),
+            _buildSection(
+              title: '메모(선택)',
+              subtitle: '간단한 메모나 기록을 남겨보세요.',
+              content: _buildNotesInput(), // ★ 메모 입력란 추가
+            ),
+            _buildSection(
+              title: '사진을 등록해주세요 (선택)',
+              subtitle: '식물의 대표 사진을 선택해주세요.',
+              content: _buildPhotoInput(),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _navigateToConfirmation,
+                icon: const Icon(Icons.check_circle_outline),
+                label: Text('등록 정보 확인하기', style: GoogleFonts.gaegu(fontSize: 18, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2ECC71),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
           ],
@@ -157,14 +194,6 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
         content,
         const SizedBox(height: 32),
       ],
-    );
-  }
-
-  Widget _buildAnimatedSection({required bool isVisible, required Widget content}) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      child: isVisible ? content : const SizedBox.shrink(),
     );
   }
 
@@ -197,7 +226,10 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.8,
+            crossAxisCount: 4,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.8,
           ),
           itemCount: _plantSamples.length + 1,
           itemBuilder: (context, index) {
@@ -208,7 +240,7 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.shade300, width: 1.5, style: BorderStyle.solid),
+                    border: Border.all(color: Colors.grey.shade300, width: 1.5),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -225,12 +257,8 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
             final isSelected = _selectedPlantName == plant.name;
             return GestureDetector(
               onTap: () => setState(() {
-                if (isSelected) {
-                  _selectedPlantName = null;
-                } else {
-                  _selectedPlantName = plant.name;
-                  _customPlantName = null;
-                }
+                _selectedPlantName = isSelected ? null : plant.name;
+                _customPlantName = null;
               }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -238,27 +266,12 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: isSelected ? const Color(0xFF2ECC71) : Colors.grey.shade300, width: isSelected ? 3 : 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isSelected ? const Color(0xFF2ECC71).withOpacity(0.2) : Colors.grey.withOpacity(0.05),
-                      blurRadius: 8, offset: const Offset(0, 4),
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(color: isSelected ? const Color(0xFF2ECC71).withOpacity(0.2) : Colors.grey.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4))],
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        plant.imagePath, width: 45, height: 45, fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 45, height: 45,
-                          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
-                          child: const Icon(Icons.eco, color: Colors.grey, size: 24),
-                        ),
-                      ),
-                    ),
+                    Image.asset(plant.imagePath, width: 45, height: 45, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.eco, color: Colors.grey, size: 24)),
                     const SizedBox(height: 8),
                     Text(plant.name, style: GoogleFonts.gaegu(fontSize: 14, fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF2ECC71) : Colors.black87)),
                   ],
@@ -307,166 +320,56 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
     );
   }
 
+  Widget _buildNotesInput() {
+    return TextFormField(
+      controller: _notesController,
+      maxLines: 3,
+      decoration: InputDecoration(
+        hintText: '메모, 기록 등을 입력하세요 (선택)',
+        hintStyle: GoogleFonts.gaegu(color: Colors.grey),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF2ECC71), width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      ),
+      style: GoogleFonts.gaegu(fontSize: 18),
+      onChanged: (value) => setState(() {}),
+    );
+  }
+
   Widget _buildPhotoInput() {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: _pickImage,
-          child: Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey[300]!),
-              image: _imageFile != null ? DecorationImage(image: FileImage(File(_imageFile!.path)), fit: BoxFit.cover) : null,
-            ),
-            child: _imageFile == null
-                ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_a_photo_outlined, size: 48, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text('사진을 선택해주세요', style: GoogleFonts.gaegu(fontSize: 18, color: Colors.grey[600])),
-              ],
-            )
-                : null,
-          ),
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[300]!),
+          image: _imageFile != null ? DecorationImage(image: FileImage(File(_imageFile!.path)), fit: BoxFit.cover) : null,
         ),
-        const SizedBox(height: 24),
-        if (_imageFile != null)
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // 👇 확인 페이지로 이동
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ConfirmationScreen(
-                      plantType: _selectedPlantName ?? _customPlantName ?? '미지정',
-                      nickname: _nicknameController.text,
-                      location: _locationController.text,
-                      imageFile: _imageFile!,
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.check_circle_outline),
-              label: Text('등록 정보 확인하기', style: GoogleFonts.gaegu(fontSize: 18, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2ECC71),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// 👇 최종 확인을 위한 별도의 페이지 위젯
-class ConfirmationScreen extends StatelessWidget {
-  final String plantType;
-  final String nickname;
-  final String location;
-  final XFile imageFile;
-
-  const ConfirmationScreen({
-    super.key,
-    required this.plantType,
-    required this.nickname,
-    required this.location,
-    required this.imageFile,
-  });
-
-  void _completeRegistration(BuildContext context) {
-    // TODO: 등록 로직 구현
-    print('식물 종류: $plantType');
-    print('별명: $nickname');
-    print('장소: $location');
-    print('사진 경로: ${imageFile.path}');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"$nickname" 등록 완료!', style: GoogleFonts.gaegu())),
-    );
-
-    Navigator.of(context).popUntil((route) => route.isFirst);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('정보 확인', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2ECC71),
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: _imageFile == null
+            ? Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('등록할 정보를 확인해주세요', style: GoogleFonts.gaegu(fontSize: 28, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.file(File(imageFile.path), height: 250, fit: BoxFit.cover),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
-                children: [
-                  _buildInfoRow(Icons.eco, '종류', plantType),
-                  const Divider(height: 24),
-                  _buildInfoRow(Icons.pets, '별명', nickname),
-                  const Divider(height: 24),
-                  _buildInfoRow(Icons.location_on, '장소', location),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _completeRegistration(context),
-                icon: const Icon(Icons.check_circle),
-                label: Text('최종 등록하기', style: GoogleFonts.gaegu(fontSize: 18, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF27AE60),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            )
+            Icon(Icons.add_a_photo_outlined, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('사진을 선택해주세요', style: GoogleFonts.gaegu(fontSize: 18, color: Colors.grey[600])),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey[600], size: 20),
-          const SizedBox(width: 16),
-          Text('$label:', style: GoogleFonts.gaegu(fontSize: 18, color: Colors.grey[700])),
-          const Spacer(),
-          Text(value, style: GoogleFonts.gaegu(fontSize: 18, fontWeight: FontWeight.bold)),
-        ],
+        )
+            : null,
       ),
     );
   }

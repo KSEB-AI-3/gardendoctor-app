@@ -288,10 +288,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
                     children: [
                       if (!isUser) ...[
-                        CircleAvatar(
+                        const CircleAvatar(
                           radius: 16,
-                          backgroundColor: const Color(0xFF2ECC71),
-                          child: const Icon(Icons.local_florist, color: Colors.white, size: 16),
+                          backgroundColor: Color(0xFF2ECC71),
+                          child: Icon(Icons.local_florist, color: Colors.white, size: 16),
                         ),
                         const SizedBox(width: 8),
                       ],

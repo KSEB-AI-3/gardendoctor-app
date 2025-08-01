@@ -102,7 +102,7 @@ class _SignupScreenState extends State<SignupScreen> {
         Navigator.pop(context);
       } catch (e) {
         print("회원가입 중 예외 발생: ${e.runtimeType}");
-        if (e is DioError) {
+        if (e is DioException) {
           print("DioError 발생: ${e.message}");
           print("DioError 타입: ${e.type}");
           if (e.response != null) {
@@ -112,8 +112,7 @@ class _SignupScreenState extends State<SignupScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                    '서버 오류: 상태 코드 ${e.response?.statusCode ?? '알 수 없음'}' +
-                        (e.response?.data != null ? '\n데이터: ${e.response?.data}' : '\n응답 데이터 없음')
+                    '서버 오류: 상태 코드 ${e.response?.statusCode ?? '알 수 없음'}${e.response?.data != null ? '\n데이터: ${e.response?.data}' : '\n응답 데이터 없음'}'
                 ),
               ),
             );

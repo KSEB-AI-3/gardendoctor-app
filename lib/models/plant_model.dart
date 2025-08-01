@@ -5,16 +5,16 @@ part 'plant_model.g.dart';
 @JsonSerializable()
 class Plant {
   final int plantId;
-  final String? name;
-  final String? englishName;
+  final String? plantName;         // 이름 변경!
+  final String? plantEnglishName;  // 이름 변경!
   final String? species;
   final String? season;
-  final String? imageUrl;
+  final String? imageUrl; // 이건 파일명이나 URL로 내려오면 그대로
 
   Plant({
     required this.plantId,
-    this.name,
-    this.englishName,
+    this.plantName,
+    this.plantEnglishName,
     this.species,
     this.season,
     this.imageUrl,

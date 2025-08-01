@@ -1,16 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'dart:io';
-import '../models/note_model.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// 등록된 내 식물 데이터를 위한 임시 클래스
-class MyRegisteredPlant {
-  final String nickname;
-  final String imagePath;
-  MyRegisteredPlant({required this.nickname, required this.imagePath});
-}
+import '../models/diary_request_model.dart';
+import '../models/user_plant_model.dart';
 
 class NoteScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -21,22 +20,28 @@ class NoteScreen extends StatefulWidget {
 }
 
 class _NoteScreenState extends State<NoteScreen> {
+  // Controllers
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
-  final List<MyRegisteredPlant> _myRegisteredPlants = [
-    MyRegisteredPlant(nickname: '내 첫 토마토', imagePath: 'assets/images/토마토.png'),
-    MyRegisteredPlant(nickname: '베란다 참외', imagePath: 'assets/images/참외.png'),
-    MyRegisteredPlant(nickname: '옥상 포도', imagePath: 'assets/images/포도.png'),
-    MyRegisteredPlant(nickname: '미니 단호박', imagePath: 'assets/images/단호박.png'),
-  ];
-  String? _selectedMyPlant;
+  // State Variables
+  List<UserPlantResponse> _myRegisteredPlants = [];
+  String? _selectedPlantNickname;
+  bool _isLoadingPlants = true;
+  bool _isSaving = false;
+  String? _error;
 
   XFile? _imageFile;
   bool _watered = false;
   bool _fertilized = false;
   bool _pruned = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMyPlants();
+  }
 
   @override
   void dispose() {
@@ -45,38 +50,119 @@ class _NoteScreenState extends State<NoteScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = pickedFile;
-      });
+  Future<void> _fetchMyPlants() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('accessToken');
+      final dio = Dio(BaseOptions(
+        baseUrl: "http://172.16.183.114:8080",
+        headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
+      ));
+      final response = await dio.get('/api/user-plants');
+      final List<UserPlantResponse> plants =
+      (response.data as List).map((e) => UserPlantResponse.fromJson(e)).toList();
+      if (mounted) setState(() => _myRegisteredPlants = plants);
+    } on DioException catch (e) {
+      if (mounted) setState(() => _error = "식물 목록 로딩 실패: ${e.message}");
+    } finally {
+      if (mounted) setState(() => _isLoadingPlants = false);
     }
   }
 
-  void _saveNote() {
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (pickedFile != null) setState(() => _imageFile = pickedFile);
+  }
+
+  Future<void> _saveNote() async {
+    if (_isSaving) return;
+
+    if (_selectedPlantNickname == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('어떤 식물에 대한 기록인지 선택해주세요!', style: GoogleFonts.gaegu())));
+      return;
+    }
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('제목은 꼭 입력해주세요!', style: GoogleFonts.gaegu()),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('제목은 꼭 입력해주세요!', style: GoogleFonts.gaegu())));
       return;
     }
 
-    final newNote = Note(
-      title: _titleController.text.trim(),
-      registeredPlantNickname: _selectedMyPlant,
-      date: widget.selectedDate,
-      image: _imageFile,
-      watered: _watered,
-      fertilized: _fertilized,
-      pruned: _pruned,
-      text: _notesController.text.trim(),
-    );
+    setState(() => _isSaving = true);
 
-    Navigator.pop(context, newNote);
+    try {
+      final selectedPlant = _myRegisteredPlants.firstWhere((plant) => plant.plantNickname == _selectedPlantNickname);
+
+      if (selectedPlant.userPlantId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('식물 정보에 문제가 있습니다. 관리자에게 문의하세요.', style: GoogleFonts.gaegu()))
+        );
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      // [1] 요청 객체 생성
+      final requestDto = DiaryRequest(
+        selectedUserPlantIds: [selectedPlant.userPlantId!],
+        title: _titleController.text.trim(),
+        content: _notesController.text.trim(),
+        watered: _watered,
+        fertilized: _fertilized,
+        pruned: _pruned,
+      );
+      final String requestJson = jsonEncode(requestDto.toJson());
+
+      // [2] 토큰
+      final prefs = await SharedPreferences.getInstance();
+      final accessToken = prefs.getString('accessToken');
+      final dio = Dio(BaseOptions(
+        baseUrl: "http://172.16.183.114:8080",
+        headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
+      ));
+
+      // [3] FormData 생성
+      final formData = FormData();
+      formData.files.add(
+        MapEntry(
+          'diaryRequest',
+          MultipartFile.fromString(
+            requestJson,
+            contentType: MediaType('application', 'json'),
+            filename: 'data.json',
+          ),
+        ),
+      );
+
+      if (_imageFile != null) {
+        final file = File(_imageFile!.path);
+        formData.files.add(
+          MapEntry(
+            'file',
+            await MultipartFile.fromFile(
+              file.path,
+              filename: 'note.jpg',
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          ),
+        );
+      }
+
+      // [4] POST (multipart/form-data)
+      final response = await dio.post('/api/diaries', data: formData);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('일지가 성공적으로 기록되었어요!', style: GoogleFonts.gaegu()), backgroundColor: Colors.green));
+          Navigator.pop(context, true);
+        }
+      } else {
+        throw Exception("기록 실패: ${response.statusCode}");
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('기록 저장에 실패했어요: ${e.response?.data['message'] ?? e.message}', style: GoogleFonts.gaegu()), backgroundColor: Colors.redAccent));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -92,19 +178,18 @@ class _NoteScreenState extends State<NoteScreen> {
         elevation: 0,
         actions: [
           TextButton(
-            onPressed: _saveNote,
-            child: Text(
-              '기록하기',
-              style: GoogleFonts.gaegu(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          )
+            onPressed: _isSaving ? null : _saveNote,
+            child: _isSaving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                : Text('기록하기', style: GoogleFonts.gaegu(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoadingPlants
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(_error!, textAlign: TextAlign.center)))
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,15 +211,10 @@ class _NoteScreenState extends State<NoteScreen> {
     );
   }
 
+  // 이하 UI 빌드 위젯들은 그대로!
   Widget _buildDateChip(String formattedDate) {
-    return Center(
-      child: Text(
-        formattedDate,
-        style: GoogleFonts.gaegu(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[700]),
-      ),
-    );
+    return Center(child: Text(formattedDate, style: GoogleFonts.gaegu(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[700])));
   }
-
   Widget _buildTitleField() {
     return TextFormField(
       controller: _titleController,
@@ -146,46 +226,43 @@ class _NoteScreenState extends State<NoteScreen> {
       style: GoogleFonts.gaegu(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF3E2723)),
     );
   }
-
   Widget _buildMyPlantSelection() {
+    if (_myRegisteredPlants.isEmpty) {
+      return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(15)),
+          child: Center(child: Text('등록된 식물이 없습니다.\n먼저 내 식물을 등록해주세요.', style: GoogleFonts.gaegu(), textAlign: TextAlign.center)));
+    }
     return DropdownButtonFormField<String>(
-      value: _selectedMyPlant,
+      value: _selectedPlantNickname,
       hint: Text('어떤 식물의 기록인가요?', style: GoogleFonts.gaegu(color: Colors.grey[600])),
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.filter_vintage_rounded, color: Color(0xFF2ECC71)),
         filled: true,
         fillColor: Colors.green.withOpacity(0.05),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide.none,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
       ),
       items: _myRegisteredPlants.map((plant) {
         return DropdownMenuItem(
-          value: plant.nickname,
+          value: plant.plantNickname,
           child: Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: Image.asset(plant.imagePath, width: 24, height: 24, fit: BoxFit.cover,
-                  errorBuilder: (c,e,s) => const Icon(Icons.eco, size: 24),
-                ),
+                child: plant.userPlantImageUrl != null
+                    ? Image.network(plant.userPlantImageUrl!, width: 24, height: 24, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.eco_rounded, size: 24, color: Colors.grey))
+                    : const Icon(Icons.eco_rounded, size: 24, color: Colors.grey),
               ),
               const SizedBox(width: 8),
-              Text(plant.nickname, style: GoogleFonts.gaegu()),
+              Text(plant.plantNickname ?? '이름 없음', style: GoogleFonts.gaegu()),
             ],
           ),
         );
       }).toList(),
-      onChanged: (value) {
-        setState(() {
-          _selectedMyPlant = value;
-        });
-      },
+      onChanged: (value) => setState(() => _selectedPlantNickname = value),
       style: GoogleFonts.gaegu(color: Colors.black87),
     );
   }
-
   Widget _buildImagePicker() {
     return GestureDetector(
       onTap: _pickImage,
@@ -196,12 +273,7 @@ class _NoteScreenState extends State<NoteScreen> {
           color: Colors.brown[50],
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.brown.withOpacity(0.2)),
-          image: _imageFile != null
-              ? DecorationImage(
-            image: FileImage(File(_imageFile!.path)),
-            fit: BoxFit.cover,
-          )
-              : null,
+          image: _imageFile != null ? DecorationImage(image: FileImage(File(_imageFile!.path)), fit: BoxFit.cover) : null,
         ),
         child: _imageFile == null
             ? Center(
@@ -218,43 +290,17 @@ class _NoteScreenState extends State<NoteScreen> {
       ),
     );
   }
-
   Widget _buildCareSection() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildCareItem(
-          icon: Icons.water_drop_rounded,
-          label: '물주기',
-          isChecked: _watered,
-          color: const Color(0xFF3498DB),
-          onTap: () => setState(() => _watered = !_watered),
-        ),
-        _buildCareItem(
-          icon: Icons.science_rounded,
-          label: '영양제',
-          isChecked: _fertilized,
-          color: const Color(0xFFE67E22),
-          onTap: () => setState(() => _fertilized = !_fertilized),
-        ),
-        _buildCareItem(
-          icon: Icons.grass_rounded,
-          label: '가지치기',
-          isChecked: _pruned,
-          color: const Color(0xFF9B59B6),
-          onTap: () => setState(() => _pruned = !_pruned),
-        ),
+        _buildCareItem(icon: Icons.water_drop_rounded, label: '물주기', isChecked: _watered, color: const Color(0xFF3498DB), onTap: () => setState(() => _watered = !_watered)),
+        _buildCareItem(icon: Icons.science_rounded, label: '영양제', isChecked: _fertilized, color: const Color(0xFFE67E22), onTap: () => setState(() => _fertilized = !_fertilized)),
+        _buildCareItem(icon: Icons.grass_rounded, label: '가지치기', isChecked: _pruned, color: const Color(0xFF9B59B6), onTap: () => setState(() => _pruned = !_pruned)),
       ],
     );
   }
-
-  Widget _buildCareItem({
-    required IconData icon,
-    required String label,
-    required bool isChecked,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildCareItem({required IconData icon, required String label, required bool isChecked, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -265,9 +311,7 @@ class _NoteScreenState extends State<NoteScreen> {
             decoration: BoxDecoration(
               color: isChecked ? color : Colors.grey[200],
               shape: BoxShape.circle,
-              boxShadow: isChecked ? [
-                BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4)),
-              ] : [],
+              boxShadow: isChecked ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))] : [],
             ),
             child: Icon(icon, size: 28, color: isChecked ? Colors.white : Colors.grey[600]),
           ),
@@ -277,7 +321,6 @@ class _NoteScreenState extends State<NoteScreen> {
       ),
     );
   }
-
   Widget _buildNoteField() {
     return Container(
       padding: const EdgeInsets.all(16),

@@ -38,7 +38,7 @@ abstract class ApiService {
         print('⬅️ 응답 데이터: ${response.data}');
         return handler.next(response);
       },
-      onError: (DioError e, handler) {
+      onError: (DioException e, handler) {
         print('❌ Dio 오류: ${e.requestOptions.path}');
         print('❌ 오류 메시지: ${e.message}');
         if (e.response != null) {

@@ -74,7 +74,6 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
       filteredFarmList = List.from(farmList);
     } else {
       filteredFarmList = farmList.where((farm) {
-        if (farm == null) return false;
         final name = (farm.farmName ?? '').toLowerCase(); // 변경!
         final address = (farm.roadNameAddress ?? '').toLowerCase();
         final operator = (farm.operator ?? '').toLowerCase();
@@ -145,7 +144,6 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
 
     for (int i = 0; i < farms.length; i++) {
       final farm = farms[i];
-      if (farm == null) continue;
 
       final lat = farm.latitude;
       final lng = farm.longitude;
@@ -255,7 +253,6 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
     if (index < 0 || index >= filteredFarmList.length) return;
 
     final farm = filteredFarmList[index];
-    if (farm == null) return;
 
     final lat = farm.latitude;
     final lng = farm.longitude;
@@ -264,12 +261,9 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
     int originalIndex = -1;
     for (int i = 0; i < farmList.length; i++) {
       final originalFarm = farmList[i];
-      if (originalFarm == null) continue;
 
       if (originalFarm == farm ||
-          (originalFarm.gardenUniqueId != null &&
-              farm.gardenUniqueId != null &&
-              originalFarm.gardenUniqueId == farm.gardenUniqueId)) {
+          (originalFarm.gardenUniqueId == farm.gardenUniqueId)) {
         originalIndex = i;
         break;
       }
@@ -305,7 +299,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
   }
 
   void showFarmDetailDialog(Farm farm) {
-    if (farm == null || !mounted) return;
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -490,7 +484,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
           final farmIdMatch = RegExp(r'farm_.*_(\d+)').firstMatch(markerId);
           if (farmIdMatch != null) {
             final index = int.tryParse(farmIdMatch.group(1) ?? '') ?? -1;
-            if (index >= 0 && index < farmList.length && farmList[index] != null) {
+            if (index >= 0 && index < farmList.length) {
               showFarmDetailDialog(farmList[index]);
             }
           }
@@ -711,19 +705,13 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
     }
 
     final farm = filteredFarmList[index];
-    if (farm == null) {
-      return const SizedBox.shrink();
-    }
 
     int originalIndex = -1;
     for (int i = 0; i < farmList.length; i++) {
       final originalFarm = farmList[i];
-      if (originalFarm == null) continue;
 
       if (originalFarm == farm ||
-          (originalFarm.gardenUniqueId != null &&
-              farm.gardenUniqueId != null &&
-              originalFarm.gardenUniqueId == farm.gardenUniqueId)) {
+          (originalFarm.gardenUniqueId == farm.gardenUniqueId)) {
         originalIndex = i;
         break;
       }
