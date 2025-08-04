@@ -15,6 +15,7 @@ DiaryRequest _$DiaryRequestFromJson(Map<String, dynamic> json) => DiaryRequest(
       watered: json['watered'] as bool,
       fertilized: json['fertilized'] as bool,
       pruned: json['pruned'] as bool,
+      deleteExistingImage: json['deleteExistingImage'] as bool?,
     );
 
 Map<String, dynamic> _$DiaryRequestToJson(DiaryRequest instance) =>
@@ -25,4 +26,5 @@ Map<String, dynamic> _$DiaryRequestToJson(DiaryRequest instance) =>
       'watered': instance.watered,
       'fertilized': instance.fertilized,
       'pruned': instance.pruned,
+      'deleteExistingImage': instance.deleteExistingImage,
     };

@@ -43,7 +43,7 @@ class _NearbyFarmScreenState extends State<NearbyFarmScreen>
     }
 
     final dio = Dio(BaseOptions(
-      baseUrl: 'http://172.16.183.114:8080',
+      baseUrl: 'http://172.16.231.57:8080',
       connectTimeout: const Duration(seconds: 8),
       receiveTimeout: const Duration(seconds: 8),
     ));

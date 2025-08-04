@@ -48,7 +48,7 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
 
       // Dio 생성 시 headers에 accessToken 추가
       final dio = Dio(BaseOptions(
-        baseUrl: "http://172.16.183.114:8080",
+        baseUrl: "http://172.16.231.57:8080",
         headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
       ));
 

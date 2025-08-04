@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ✅ SharedPreferences 임포트
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_model.dart';
 import '../services/api_service.dart';
-import 'login_screen.dart'; // ✅ LoginScreen 임포트
+import 'login_screen.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
@@ -33,7 +33,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
     try {
       final dio = Dio();
-      final api = ApiService(dio); // 인터셉터는 ApiService 팩토리에서 추가됨
+      final api = ApiService(dio);
 
       final User fetchedUser = await api.getUserMe();
       setState(() {
@@ -48,7 +48,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
         _isLoading = false;
       });
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        // 토큰 만료 또는 인증 실패 시 로그인 화면으로 리다이렉트
         _showSessionExpiredDialog();
       }
     } catch (e) {
@@ -63,19 +62,16 @@ class _MyPageScreenState extends State<MyPageScreen> {
   Future<void> _logout() async {
     try {
       final dio = Dio();
-      final api = ApiService(dio); // 인터셉터는 ApiService 팩토리에서 추가됨
+      final api = ApiService(dio);
 
-      // 서버에 로그아웃 요청 (Access Token이 자동으로 헤더에 추가됨)
       await api.logout();
       print("서버 로그아웃 요청 성공");
 
-      // 로컬에 저장된 토큰 삭제
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.remove('accessToken');
       await prefs.remove('refreshToken');
       print("로컬 토큰 삭제 완료");
 
-      // 로그인 화면으로 이동 (모든 이전 화면 제거)
       if (context.mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -88,7 +84,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('로그아웃 실패: ${e.response?.data['message'] ?? e.response?.statusCode}')),
       );
-      // 서버 로그아웃 실패해도 로컬 토큰은 지우고 로그인 화면으로 이동하는 것이 일반적
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.remove('accessToken');
       await prefs.remove('refreshToken');
@@ -110,7 +105,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   void _showSessionExpiredDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false, // 사용자가 다이얼로그 외부를 탭하여 닫을 수 없게 함
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text('세션 만료', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
@@ -119,8 +114,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
             TextButton(
               child: Text('확인', style: GoogleFonts.gaegu(color: const Color(0xFF2ECC71))),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // 다이얼로그 닫기
-                _logout(); // 로그아웃 처리 및 로그인 화면으로 이동
+                Navigator.of(dialogContext).pop();
+                _logout();
               },
             ),
           ],
@@ -172,27 +167,47 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              _user != null
-                  ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildUserInfoRow(Icons.email, '이메일', _user!.email),
-                  _buildUserInfoRow(Icons.person, '닉네임', _user!.nickname),
-                  _buildUserInfoRow(Icons.badge, '역할', _user!.role),
-                  // 추가 정보 (null이 아닐 경우만 표시)
-                  if (_user!.profileImage != null && _user!.profileImage!.isNotEmpty)
-                    _buildUserInfoRow(Icons.image, '프로필 이미지', _user!.profileImage!),
-                  if (_user!.oauthProvider != null && _user!.oauthProvider!.isNotEmpty)
-                    _buildUserInfoRow(Icons.login, 'OAuth 제공자', _user!.oauthProvider!),
-                ],
-              )
-                  : Container(), // 사용자 정보가 없을 경우 빈 컨테이너
+              if (_user != null) ...[
+                // 1. 프로필 이미지 썸네일 표시
+                if (_user!.profileImageUrl != null && _user!.profileImageUrl!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(40),
+                          child: Image.network(
+                            _user!.profileImageUrl!,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 64,
+                              height: 64,
+                              color: Colors.grey[200],
+                              child: Icon(Icons.person, size: 40, color: Colors.grey[400]),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '프로필 이미지',
+                          style: GoogleFonts.gaegu(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                _buildUserInfoRow(Icons.email, '이메일', _user!.email),
+                _buildUserInfoRow(Icons.person, '닉네임', _user!.nickname),
+                _buildUserInfoRow(Icons.badge, '역할', _user!.role),
+                if (_user!.oauthProvider != null && _user!.oauthProvider!.isNotEmpty)
+                  _buildUserInfoRow(Icons.login, 'OAuth 제공자', _user!.oauthProvider!),
+              ],
               const SizedBox(height: 30),
               ListTile(
                 leading: const Icon(Icons.settings, color: Color(0xFF2ECC71)),
                 title: Text("설정", style: GoogleFonts.gaegu()),
                 onTap: () {
-                  // 설정 화면으로 이동
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('설정 화면으로 이동합니다.', style: GoogleFonts.gaegu())),
                   );
@@ -201,7 +216,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
               ListTile(
                 leading: const Icon(Icons.logout, color: Color(0xFF2ECC71)),
                 title: Text("로그아웃", style: GoogleFonts.gaegu()),
-                onTap: _logout, // 로그아웃 함수 호출
+                onTap: _logout,
               ),
             ],
           ),
@@ -232,7 +247,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 fontSize: 16,
                 color: Colors.grey[800],
               ),
-              overflow: TextOverflow.ellipsis, // 긴 텍스트 처리
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

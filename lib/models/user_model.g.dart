@@ -45,11 +45,9 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
       userId: (json['userId'] as num).toInt(),
       email: json['email'] as String,
       nickname: json['nickname'] as String,
-      profileImage: json['profileImage'] as String?,
+      profileImageUrl: json['profileImageUrl'] as String?,
       oauthProvider: json['oauthProvider'] as String?,
-      oauthId: json['oauthId'] as String?,
       role: json['role'] as String,
-      fcmToken: json['fcmToken'] as String?,
       subscriptionStatus: json['subscriptionStatus'] as String?,
     );
 
@@ -57,11 +55,9 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
       'userId': instance.userId,
       'email': instance.email,
       'nickname': instance.nickname,
-      'profileImage': instance.profileImage,
+      'profileImageUrl': instance.profileImageUrl,
       'oauthProvider': instance.oauthProvider,
-      'oauthId': instance.oauthId,
       'role': instance.role,
-      'fcmToken': instance.fcmToken,
       'subscriptionStatus': instance.subscriptionStatus,
     };
 

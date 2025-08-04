@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 
 part 'api_service.g.dart';
 
-@RestApi(baseUrl: "http://172.16.183.114:8080")
+@RestApi(baseUrl: "http://172.16.231.57:8080")
 abstract class ApiService {
   factory ApiService(Dio dio, {String? baseUrl}) {
 

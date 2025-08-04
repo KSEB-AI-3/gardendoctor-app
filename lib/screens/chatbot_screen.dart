@@ -51,7 +51,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     try {
       // 🟢 반드시 본인 PC의 IP 주소로 바꿔주세요! 예: 192.168.0.13
       // 에뮬레이터면 10.0.2.2 도 가능
-      final url = Uri.parse('http://172.16.183.114:8000/api/chat');
+      final url = Uri.parse('http://172.16.231.57:8000/api/chat');
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},

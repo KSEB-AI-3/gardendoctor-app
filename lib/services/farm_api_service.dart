@@ -10,7 +10,6 @@ class FarmApiService {
   /// 전체 텃밭 목록 조회
   Future<List<Farm>> getAllFarms() async {
     final res = await dio.get('/api/farms');
-    // 결과값이 List가 아닐 때를 대비한 null check(실패 방지)
     final List farms = res.data as List? ?? [];
     return farms.map((json) => Farm.fromJson(json)).toList();
   }
@@ -33,12 +32,11 @@ class FarmApiService {
     return farms.map((json) => Farm.fromJson(json)).toList();
   }
 
-  /// 텃밭 검색 (name/address)
-  Future<List<Farm>> searchFarms(String searchType, String keyword) async {
+  /// 텃밭 검색 (키워드만 사용)
+  Future<List<Farm>> searchFarms(String keyword) async { // ⭐️ searchType 파라미터 제거
     final res = await dio.get(
       '/api/farms/search',
       queryParameters: {
-        'searchType': searchType,
         'keyword': keyword,
       },
     );

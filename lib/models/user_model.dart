@@ -43,28 +43,24 @@ class JwtToken {
   Map<String, dynamic> toJson() => _$JwtTokenToJson(this);
 }
 
-// ✅ User 모델 추가 (GET /auth/user/me 응답)
+// ✅ User 모델 (profileImageUrl로 맞춰야 백엔드랑 매핑됨!)
 @JsonSerializable()
 class User {
   final int userId;
   final String email;
   final String nickname;
-  final String? profileImage; // nullable
-  final String? oauthProvider; // nullable
-  final String? oauthId; // nullable
+  final String? profileImageUrl; // 필드명 변경!
+  final String? oauthProvider;
   final String role;
-  final String? fcmToken; // nullable
-  final String? subscriptionStatus; // nullable
+  final String? subscriptionStatus;
 
   User({
     required this.userId,
     required this.email,
     required this.nickname,
-    this.profileImage,
+    this.profileImageUrl,
     this.oauthProvider,
-    this.oauthId,
     required this.role,
-    this.fcmToken,
     this.subscriptionStatus,
   });
 
@@ -72,14 +68,14 @@ class User {
   Map<String, dynamic> toJson() => _$UserToJson(this);
 }
 
-// ✅ AuthResponseDto 모델 추가 (로그아웃 등 일반 응답)
+// ✅ AuthResponseDto 모델
 @JsonSerializable()
 class AuthResponseDto {
-  final String? accessToken; // nullable
-  final String? refreshToken; // nullable
+  final String? accessToken;
+  final String? refreshToken;
   final String message;
-  final String? errorCode; // nullable
-  final dynamic data; // 유연성을 위해 dynamic으로 설정
+  final String? errorCode;
+  final dynamic data;
 
   AuthResponseDto({
     this.accessToken,

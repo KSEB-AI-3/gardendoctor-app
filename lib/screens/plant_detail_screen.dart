@@ -35,7 +35,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     final prefs = await SharedPreferences.getInstance();
     final accessToken = prefs.getString('accessToken');
     final dio = Dio(BaseOptions(
-      baseUrl: "http://172.16.183.114:8080",
+      baseUrl: "http://172.16.231.57:8080",
       headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
     ));
 

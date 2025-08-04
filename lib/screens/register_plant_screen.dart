@@ -2,6 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart';
+
+import '../services/farm_api_service.dart';
+import '../services/dio_interceptor.dart'; // ⭐️ Interceptor import!
+import '../models/farm_model.dart';
 import 'confirmation_screen.dart';
 
 class PlantSample {
@@ -21,12 +26,14 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
   final TextEditingController _customPlantController = TextEditingController();
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController(); // ★ 메모 필드 추가
+  final TextEditingController _notesController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   String? _selectedPlantName;
   String? _customPlantName;
   XFile? _imageFile;
+
+  late final FarmApiService farmApiService;
 
   final List<PlantSample> _plantSamples = [
     PlantSample(name: '상추', imagePath: 'assets/images/상추.png'),
@@ -44,26 +51,43 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    final dio = Dio(BaseOptions(
+      baseUrl: 'http://172.16.231.57:8080',
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+    ));
+    dio.interceptors.add(DioInterceptor()); // ⭐️ 반드시 Interceptor 추가!
+    farmApiService = FarmApiService(dio);
+  }
+  @override
   void dispose() {
     _customPlantController.dispose();
     _nicknameController.dispose();
     _locationController.dispose();
-    _notesController.dispose(); // ★ 메모 컨트롤러 해제
+    _notesController.dispose();
     super.dispose();
   }
 
   void _navigateToConfirmation() {
     final plantType = _selectedPlantName ?? _customPlantName;
     if (plantType == null || plantType.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('식물 종류를 선택해주세요!', style: GoogleFonts.gaegu())));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('식물 종류를 선택해주세요!', style: GoogleFonts.gaegu()))
+      );
       return;
     }
     if (_nicknameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('별명을 입력해주세요!', style: GoogleFonts.gaegu())));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('별명을 입력해주세요!', style: GoogleFonts.gaegu()))
+      );
       return;
     }
     if (_locationController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('키우는 장소를 입력해주세요!', style: GoogleFonts.gaegu())));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('키우는 장소를 입력해주세요!', style: GoogleFonts.gaegu()))
+      );
       return;
     }
 
@@ -74,7 +98,7 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
           plantType: plantType,
           nickname: _nicknameController.text,
           location: _locationController.text,
-          notes: _notesController.text, // ★ 메모 전달
+          notes: _notesController.text,
           imageFile: _imageFile,
         ),
       ),
@@ -124,6 +148,24 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
     );
   }
 
+  // 텃밭 검색 모달 띄우기
+  void _showFarmSearchModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FarmSearchModal(
+        farmApiService: farmApiService,
+        onFarmSelected: (farm) {
+          setState(() {
+            _locationController.text = '${farm.farmName ?? "-"} (${farm.roadNameAddress ?? farm.lotNumberAddress ?? ""})';
+          });
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -155,7 +197,7 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
             _buildSection(
               title: '메모(선택)',
               subtitle: '간단한 메모나 기록을 남겨보세요.',
-              content: _buildNotesInput(), // ★ 메모 입력란 추가
+              content: _buildNotesInput(),
             ),
             _buildSection(
               title: '사진을 등록해주세요 (선택)',
@@ -303,20 +345,74 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
   }
 
   Widget _buildLocationInput() {
-    return TextFormField(
-      controller: _locationController,
-      decoration: InputDecoration(
-        hintText: '예: 베란다, 텃밭, 창가 등',
-        hintStyle: GoogleFonts.gaegu(color: Colors.grey),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF2ECC71), width: 2)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      ),
-      style: GoogleFonts.gaegu(fontSize: 18),
-      onChanged: (value) => setState(() {}),
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _locationController,
+                decoration: InputDecoration(
+                  hintText: '예: 베란다, 창가, 옥상 등',
+                  hintStyle: GoogleFonts.gaegu(color: Colors.grey),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF2ECC71), width: 2)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                ),
+                style: GoogleFonts.gaegu(fontSize: 18),
+                onChanged: (value) => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 텃밭 검색 버튼
+            Container(
+              height: 56,
+              width: 56,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2ECC71),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2ECC71).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: _showFarmSearchModal,
+                icon: const Icon(Icons.search, color: Colors.white, size: 24),
+                tooltip: '텃밭 검색',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // 텃밭 검색 안내 텍스트
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2ECC71).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF2ECC71).withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: const Color(0xFF2ECC71), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '텃밭에서 키우시나요? 오른쪽 검색 버튼을 눌러 텃밭을 찾아보세요!',
+                  style: GoogleFonts.gaegu(fontSize: 14, color: const Color(0xFF2ECC71)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -370,6 +466,267 @@ class _RegisterPlantScreenState extends State<RegisterPlantScreen> {
           ],
         )
             : null,
+      ),
+    );
+  }
+}
+
+// 텃밭 검색 모달
+class FarmSearchModal extends StatefulWidget {
+  final FarmApiService farmApiService;
+  final Function(Farm) onFarmSelected;
+
+  const FarmSearchModal({
+    super.key,
+    required this.farmApiService,
+    required this.onFarmSelected,
+  });
+
+  @override
+  State<FarmSearchModal> createState() => _FarmSearchModalState();
+}
+
+class _FarmSearchModalState extends State<FarmSearchModal> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Farm> _searchResults = [];
+  bool _isSearching = false;
+  String _searchKeyword = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchFarms(String keyword) async {
+    if (keyword.trim().isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _searchKeyword = '';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _searchKeyword = keyword;
+    });
+
+    try {
+      final results = await widget.farmApiService.searchFarms(keyword);
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('검색 중 오류가 발생했습니다: ${e.toString()}', style: GoogleFonts.gaegu()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSearching = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // 모달 헤더
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2ECC71),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.agriculture, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '텃밭 검색',
+                        style: GoogleFonts.gaegu(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // 검색창
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: TextFormField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: '텃밭명이나 주소를 입력하세요',
+                hintStyle: GoogleFonts.gaegu(color: Colors.grey),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF2ECC71)),
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
+              style: GoogleFonts.gaegu(fontSize: 16),
+              onChanged: (value) {
+                // 디바운싱을 위한 타이머 구현
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  if (_searchController.text == value) {
+                    _searchFarms(value);
+                  }
+                });
+              },
+              onFieldSubmitted: _searchFarms,
+            ),
+          ),
+          // 검색 결과
+          Expanded(
+            child: _isSearching
+                ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF2ECC71)),
+                  SizedBox(height: 16),
+                  Text('텃밭을 검색하고 있습니다...'),
+                ],
+              ),
+            )
+                : _searchResults.isEmpty
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _searchKeyword.isEmpty ? Icons.search : Icons.search_off,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _searchKeyword.isEmpty
+                        ? '텃밭명이나 주소를 검색해보세요'
+                        : '검색 결과가 없습니다',
+                    style: GoogleFonts.gaegu(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_searchKeyword.isNotEmpty)
+                    Text(
+                      '다른 키워드로 검색해보세요',
+                      style: GoogleFonts.gaegu(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                ],
+              ),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: _searchResults.length,
+              itemBuilder: (context, index) {
+                final farm = _searchResults[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 2,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2ECC71).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.agriculture,
+                        color: Color(0xFF2ECC71),
+                        size: 24,
+                      ),
+                    ),
+                    title: Text(
+                      farm.farmName ?? '텃밭명 없음',
+                      style: GoogleFonts.gaegu(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (farm.operator != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '운영: ${farm.operator}',
+                            style: GoogleFonts.gaegu(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        Text(
+                          farm.roadNameAddress ?? farm.lotNumberAddress ?? '주소 정보 없음',
+                          style: GoogleFonts.gaegu(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => widget.onFarmSelected(farm),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

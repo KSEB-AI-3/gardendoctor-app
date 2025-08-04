@@ -49,7 +49,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
 
       // 1. Dio 인스턴스 + 헤더 세팅
       final dio = Dio(BaseOptions(
-        baseUrl: "http://172.16.183.114:8080",
+        baseUrl: "http://172.16.231.57:8080",
         headers: {"Authorization": "Bearer $accessToken"},
       ));
 

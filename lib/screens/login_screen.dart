@@ -22,7 +22,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   // 서버 주소를 변수로 만들어 관리 용이성을 높입니다.
-  final String _baseUrl = 'http://172.16.183.114:8080';
+  final String _baseUrl = 'http://172.16.231.57:8080';
 
   final _idController = TextEditingController();
   final _passwordController = TextEditingController();
