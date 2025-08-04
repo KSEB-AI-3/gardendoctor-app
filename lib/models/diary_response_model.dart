@@ -10,6 +10,7 @@ class DiaryResponse {
   final int userId;
   final String title;
   final String? content;
+  final String? diaryDate; // ⭐️ 추가: 백엔드 날짜 문자열("2024-08-04" 등) 응답 받음
   final String? imageUrl;
   final bool watered;
   final bool pruned;
@@ -23,6 +24,7 @@ class DiaryResponse {
     required this.userId,
     required this.title,
     this.content,
+    this.diaryDate,          // ⭐️ 생성자에도 추가
     this.imageUrl,
     required this.watered,
     required this.pruned,
@@ -32,6 +34,8 @@ class DiaryResponse {
     required this.connectedUserPlantIds,
   });
 
-  factory DiaryResponse.fromJson(Map<String, dynamic> json) => _$DiaryResponseFromJson(json);
+  factory DiaryResponse.fromJson(Map<String, dynamic> json) =>
+      _$DiaryResponseFromJson(json);
+
   Map<String, dynamic> toJson() => _$DiaryResponseToJson(this);
 }

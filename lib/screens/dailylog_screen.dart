@@ -5,14 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-
-// [추가]  necessárias importações
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/diary_response_model.dart';
 import '../services/diary_api_service.dart';
 import 'note_screen.dart';
+import 'diary_detail_screen.dart';
 
 class DailyLogScreen extends StatefulWidget {
   const DailyLogScreen({super.key});
@@ -35,18 +34,16 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
     _fetchDiaries();
   }
 
-  // [수정] 인증 토큰을 포함하도록 함수 수정
+  // ✅ "createdAt" → "diaryDate"로 캘린더에 매핑!
   Future<void> _fetchDiaries() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      // SharedPreferences에서 accessToken 가져오기
       final prefs = await SharedPreferences.getInstance();
       final accessToken = prefs.getString('accessToken');
 
-      // Dio 생성 시 headers에 accessToken 추가
       final dio = Dio(BaseOptions(
         baseUrl: "http://172.16.231.57:8080",
         headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
@@ -57,18 +54,18 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
 
       final Map<DateTime, List<DiaryResponse>> events = {};
       for (final diary in diaries) {
-        final date = DateTime.parse(diary.createdAt).toLocal();
-        final normalizedDate = DateTime(date.year, date.month, date.day);
-        if (events[normalizedDate] == null) {
-          events[normalizedDate] = [];
+        final diaryDateStr = diary.diaryDate;
+        if (diaryDateStr != null && diaryDateStr.isNotEmpty) {
+          final date = DateTime.parse(diaryDateStr);
+          final normalizedDate = DateTime(date.year, date.month, date.day);
+          events.putIfAbsent(normalizedDate, () => []);
+          events[normalizedDate]!.add(diary);
         }
-        events[normalizedDate]!.add(diary);
       }
 
       if (mounted) setState(() => _events = events);
     } on DioException catch (e) {
       if (mounted) {
-        // 401 오류에 대한 더 구체적인 메시지 표시 가능
         if (e.response?.statusCode == 401) {
           setState(() => _error = "인증에 실패했습니다. 다시 로그인해주세요.");
         } else {
@@ -79,6 +76,7 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   List<DiaryResponse> _getEventsForDay(DateTime day) {
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
@@ -226,8 +224,19 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.gaegu()),
-            onTap: () {
-              // TODO: 상세 보기 화면으로 이동하는 로직 구현
+            onTap: () async {
+              // ✅ 상세 보기 화면으로 이동
+              final result = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DiaryDetailScreen(diary: diary),
+                ),
+              );
+
+              // 상세 화면에서 수정/삭제가 발생했으면 새로고침
+              if (result == true) {
+                _fetchDiaries();
+              }
             },
           ),
         );

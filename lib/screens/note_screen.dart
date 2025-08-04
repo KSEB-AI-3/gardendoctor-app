@@ -9,23 +9,25 @@ import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/diary_request_model.dart';
+import '../models/diary_response_model.dart';
 import '../models/user_plant_model.dart';
+import '../services/diary_api_service.dart';
 
 class NoteScreen extends StatefulWidget {
   final DateTime selectedDate;
-  const NoteScreen({super.key, required this.selectedDate});
+  final DiaryResponse? editingDiary; // 수정 모드 시 전달
+
+  const NoteScreen({super.key, required this.selectedDate, this.editingDiary});
 
   @override
   State<NoteScreen> createState() => _NoteScreenState();
 }
 
 class _NoteScreenState extends State<NoteScreen> {
-  // Controllers
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
-  // State Variables
   List<UserPlantResponse> _myRegisteredPlants = [];
   String? _selectedPlantNickname;
   bool _isLoadingPlants = true;
@@ -36,11 +38,34 @@ class _NoteScreenState extends State<NoteScreen> {
   bool _watered = false;
   bool _fertilized = false;
   bool _pruned = false;
+  bool _deleteExistingImage = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchMyPlants();
+    _fetchMyPlants().then((_) => _initEditModeIfNeeded());
+  }
+
+  void _initEditModeIfNeeded() {
+    if (widget.editingDiary != null) {
+      final d = widget.editingDiary!;
+      _titleController.text = d.title;
+      _notesController.text = d.content ?? '';
+      _watered = d.watered;
+      _fertilized = d.fertilized;
+      _pruned = d.pruned;
+
+      if (d.connectedUserPlantIds.isNotEmpty && _myRegisteredPlants.isNotEmpty) {
+        final userPlantId = d.connectedUserPlantIds.first;
+        final plant = _myRegisteredPlants.firstWhere(
+              (p) => p.userPlantId == userPlantId,
+          orElse: () => _myRegisteredPlants.first,
+        );
+        _selectedPlantNickname = plant.plantNickname;
+      } else {
+        _selectedPlantNickname = null;
+      }
+    }
   }
 
   @override
@@ -99,18 +124,18 @@ class _NoteScreenState extends State<NoteScreen> {
         return;
       }
 
-      // [1] 요청 객체 생성
-      final requestDto = DiaryRequest(
+      final diaryRequest = DiaryRequest(
         selectedUserPlantIds: [selectedPlant.userPlantId!],
         title: _titleController.text.trim(),
         content: _notesController.text.trim(),
+        diaryDate: DateFormat('yyyy-MM-dd').format(widget.selectedDate),
         watered: _watered,
         fertilized: _fertilized,
         pruned: _pruned,
+        deleteExistingImage: _deleteExistingImage,
       );
-      final String requestJson = jsonEncode(requestDto.toJson());
+      final String requestJson = jsonEncode(diaryRequest.toJson());
 
-      // [2] 토큰
       final prefs = await SharedPreferences.getInstance();
       final accessToken = prefs.getString('accessToken');
       final dio = Dio(BaseOptions(
@@ -118,47 +143,81 @@ class _NoteScreenState extends State<NoteScreen> {
         headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
       ));
 
-      // [3] FormData 생성
-      final formData = FormData();
-      formData.files.add(
-        MapEntry(
-          'diaryRequest',
-          MultipartFile.fromString(
-            requestJson,
-            contentType: MediaType('application', 'json'),
-            filename: 'data.json',
-          ),
-        ),
-      );
-
-      if (_imageFile != null) {
-        final file = File(_imageFile!.path);
+      if (widget.editingDiary == null) {
+        // 신규 등록
+        final formData = FormData();
         formData.files.add(
           MapEntry(
-            'file',
-            await MultipartFile.fromFile(
-              file.path,
-              filename: 'note.jpg',
-              contentType: MediaType('image', 'jpeg'),
+            'diaryRequest',
+            MultipartFile.fromString(
+              requestJson,
+              contentType: MediaType('application', 'json'),
+              filename: 'data.json',
             ),
           ),
         );
-      }
-
-      // [4] POST (multipart/form-data)
-      final response = await dio.post('/api/diaries', data: formData);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('일지가 성공적으로 기록되었어요!', style: GoogleFonts.gaegu()), backgroundColor: Colors.green));
-          Navigator.pop(context, true);
+        if (_imageFile != null) {
+          final file = File(_imageFile!.path);
+          formData.files.add(
+            MapEntry(
+              'imageFile',
+              await MultipartFile.fromFile(
+                file.path,
+                filename: 'note.jpg',
+                contentType: MediaType('image', 'jpeg'),
+              ),
+            ),
+          );
+        }
+        final response = await dio.post('/api/diaries', data: formData);
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('일지가 성공적으로 기록되었어요!', style: GoogleFonts.gaegu()), backgroundColor: Colors.green));
+            Navigator.pop(context, true);
+          }
+        } else {
+          throw Exception("기록 실패: ${response.statusCode}");
         }
       } else {
-        throw Exception("기록 실패: ${response.statusCode}");
+        // 수정 모드 (PUT)
+        final diaryId = widget.editingDiary!.diaryId;
+        final formData = FormData();
+        formData.files.add(
+          MapEntry(
+            'request',
+            MultipartFile.fromString(
+              requestJson,
+              contentType: MediaType('application', 'json'),
+              filename: 'data.json',
+            ),
+          ),
+        );
+        if (_imageFile != null) {
+          final file = File(_imageFile!.path);
+          formData.files.add(
+            MapEntry(
+              'newImageFile',
+              await MultipartFile.fromFile(
+                file.path,
+                filename: 'note.jpg',
+                contentType: MediaType('image', 'jpeg'),
+              ),
+            ),
+          );
+        }
+        final response = await dio.put('/api/diaries/$diaryId', data: formData);
+        if (response.statusCode == 200) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('일지가 성공적으로 수정되었어요!', style: GoogleFonts.gaegu()), backgroundColor: Colors.green));
+            Navigator.pop(context, true);
+          }
+        } else {
+          throw Exception("수정 실패: ${response.statusCode}");
+        }
       }
     } on DioException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('기록 저장에 실패했어요: ${e.response?.data['message'] ?? e.message}', style: GoogleFonts.gaegu()), backgroundColor: Colors.redAccent));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: ${e.response?.data['message'] ?? e.message}', style: GoogleFonts.gaegu()), backgroundColor: Colors.redAccent));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -172,7 +231,7 @@ class _NoteScreenState extends State<NoteScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFDFCF8),
       appBar: AppBar(
-        title: Text('오늘의 일지', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
+        title: Text(widget.editingDiary == null ? '오늘의 일지' : '일지 수정', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF81C784),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -181,7 +240,7 @@ class _NoteScreenState extends State<NoteScreen> {
             onPressed: _isSaving ? null : _saveNote,
             child: _isSaving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                : Text('기록하기', style: GoogleFonts.gaegu(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                : Text(widget.editingDiary == null ? '기록하기' : '수정하기', style: GoogleFonts.gaegu(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -201,6 +260,12 @@ class _NoteScreenState extends State<NoteScreen> {
             _buildMyPlantSelection(),
             const SizedBox(height: 24),
             _buildImagePicker(),
+            if (widget.editingDiary != null && widget.editingDiary!.imageUrl != null)
+              CheckboxListTile(
+                title: Text('기존 이미지 삭제', style: GoogleFonts.gaegu()),
+                value: _deleteExistingImage,
+                onChanged: (val) => setState(() => _deleteExistingImage = val ?? false),
+              ),
             const SizedBox(height: 24),
             _buildCareSection(),
             const SizedBox(height: 24),

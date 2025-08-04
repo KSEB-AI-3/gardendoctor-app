@@ -7,6 +7,7 @@ class DiaryRequest {
   final List<int> selectedUserPlantIds;
   final String title;
   final String content;
+  final String diaryDate; // <-- 반드시 추가! (YYYY-MM-DD)
   final bool watered;
   final bool fertilized;
   final bool pruned;
@@ -16,6 +17,7 @@ class DiaryRequest {
     required this.selectedUserPlantIds,
     required this.title,
     required this.content,
+    required this.diaryDate, // <-- 필수!
     required this.watered,
     required this.fertilized,
     required this.pruned,

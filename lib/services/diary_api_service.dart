@@ -1,5 +1,3 @@
-// lib/services/diary_api_service.dart
-
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
@@ -12,19 +10,13 @@ part 'diary_api_service.g.dart';
 abstract class DiaryApiService {
   factory DiaryApiService(Dio dio, {String baseUrl}) = _DiaryApiService;
 
-  @POST("/api/diaries")
-  @MultiPart()
-  Future<DiaryResponse> createDiaryWithFile(
-      @Part(name: "request") String diaryRequest, // 👈 타입을 String으로 변경
-      @Part(name: "file") File imageFile,
-      );
-
-  @POST("/api/diaries")
-  @MultiPart()
-  Future<DiaryResponse> createDiary(
-      @Part(name: "request") String diaryRequest, // 👈 타입을 String으로 변경
-      );
-
+  // 내 모든 일지 조회
   @GET('/api/diaries/my-diaries')
   Future<List<DiaryResponse>> getAllMyDiaries();
+
+  // 일지 삭제
+  @DELETE("/api/diaries/{diaryId}")
+  Future<void> deleteDiary(
+      @Path("diaryId") int diaryId,
+      );
 }
