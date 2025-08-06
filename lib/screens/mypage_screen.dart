@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_model.dart';
@@ -18,6 +20,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   User? _user;
   bool _isLoading = true;
   String? _errorMessage;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -40,9 +43,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         _user = fetchedUser;
         _isLoading = false;
       });
-      print("사용자 정보 조회 성공: ${_user?.email}");
     } on DioException catch (e) {
-      print("사용자 정보 조회 DioError: ${e.response?.statusCode} - ${e.response?.data}");
       setState(() {
         _errorMessage = '사용자 정보를 불러오지 못했습니다. (${e.response?.statusCode ?? e.type.toString()})';
         _isLoading = false;
@@ -51,7 +52,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
         _showSessionExpiredDialog();
       }
     } catch (e) {
-      print("사용자 정보 조회 일반 오류: ${e.toString()}");
       setState(() {
         _errorMessage = '알 수 없는 오류 발생: ${e.toString()}';
         _isLoading = false;
@@ -59,46 +59,168 @@ class _MyPageScreenState extends State<MyPageScreen> {
     }
   }
 
+  Future<void> _changeNickname() async {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('닉네임 변경', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(hintText: '새 닉네임 입력'),
+          ),
+          actions: [
+            TextButton(
+              child: Text('취소', style: GoogleFonts.gaegu(color: Colors.grey)),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            TextButton(
+              child: Text('변경', style: GoogleFonts.gaegu(color: Color(0xFF2ECC71))),
+              onPressed: () async {
+                final newNickname = controller.text.trim();
+                if (newNickname.isEmpty) return;
+                Navigator.of(dialogContext).pop();
+                try {
+                  setState(() => _isLoading = true);
+                  final dio = Dio();
+                  final api = ApiService(dio);
+                  final user = await api.updateNickname({"newNickname": newNickname});
+                  setState(() {
+                    _user = user;
+                    _isLoading = false;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('닉네임이 변경되었습니다.', style: GoogleFonts.gaegu())),
+                  );
+                } catch (e) {
+                  setState(() => _isLoading = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('닉네임 변경 실패', style: GoogleFonts.gaegu())),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _uploadProfileImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (image == null) return;
+
+    try {
+      setState(() => _isLoading = true);
+      final dio = Dio();
+      final api = ApiService(dio);
+      final file = File(image.path);
+      final user = await api.uploadProfileImage(file);
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('프로필 이미지가 변경되었습니다.', style: GoogleFonts.gaegu())),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('프로필 이미지 변경 실패', style: GoogleFonts.gaegu())),
+      );
+    }
+  }
+
+  Future<void> _deleteProfileImage() async {
+    try {
+      setState(() => _isLoading = true);
+      final dio = Dio();
+      final api = ApiService(dio);
+      final user = await api.deleteProfileImage();
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('기본 프로필 이미지로 변경되었습니다.', style: GoogleFonts.gaegu())),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('프로필 이미지 삭제 실패', style: GoogleFonts.gaegu())),
+      );
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('회원 탈퇴', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
+        content: Text('정말로 회원 탈퇴하시겠습니까? 이 작업은 취소할 수 없습니다.', style: GoogleFonts.gaegu()),
+        actions: [
+          TextButton(
+            child: Text('취소', style: GoogleFonts.gaegu(color: Colors.grey)),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          TextButton(
+            child: Text('탈퇴', style: GoogleFonts.gaegu(color: Colors.red)),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      setState(() => _isLoading = true);
+      final dio = Dio();
+      final api = ApiService(dio);
+      await api.deleteAccount();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('회원 탈퇴 실패', style: GoogleFonts.gaegu())),
+      );
+    }
+  }
+
   Future<void> _logout() async {
     try {
       final dio = Dio();
       final api = ApiService(dio);
-
       await api.logout();
-      print("서버 로그아웃 요청 성공");
-
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.remove('accessToken');
-      await prefs.remove('refreshToken');
-      print("로컬 토큰 삭제 완료");
-
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
       if (context.mounted) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (Route<dynamic> route) => false,
-        );
-      }
-    } on DioException catch (e) {
-      print("로그아웃 DioError: ${e.response?.statusCode} - ${e.response?.data}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('로그아웃 실패: ${e.response?.data['message'] ?? e.response?.statusCode}')),
-      );
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.remove('accessToken');
-      await prefs.remove('refreshToken');
-      if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (Route<dynamic> route) => false,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
         );
       }
     } catch (e) {
-      print("로그아웃 일반 오류: ${e.toString()}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('로그아웃 중 오류 발생: ${e.toString()}')),
-      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+        );
+      }
     }
   }
 
@@ -106,11 +228,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: Text('세션 만료', style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
           content: Text('세션이 만료되었습니다. 다시 로그인해주세요.', style: GoogleFonts.gaegu()),
-          actions: <Widget>[
+          actions: [
             TextButton(
               child: Text('확인', style: GoogleFonts.gaegu(color: const Color(0xFF2ECC71))),
               onPressed: () {
@@ -168,7 +290,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
               ),
               const SizedBox(height: 20),
               if (_user != null) ...[
-                // 1. 프로필 이미지 썸네일 표시
+                // 프로필 이미지 썸네일
                 if (_user!.profileImageUrl != null && _user!.profileImageUrl!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -190,9 +312,26 @@ class _MyPageScreenState extends State<MyPageScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          '프로필 이미지',
-                          style: GoogleFonts.gaegu(fontSize: 16, fontWeight: FontWeight.bold),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '프로필 이미지',
+                              style: GoogleFonts.gaegu(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            Row(
+                              children: [
+                                TextButton(
+                                  onPressed: _uploadProfileImage,
+                                  child: Text('이미지 변경', style: GoogleFonts.gaegu()),
+                                ),
+                                TextButton(
+                                  onPressed: _deleteProfileImage,
+                                  child: Text('기본 이미지로', style: GoogleFonts.gaegu()),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -202,8 +341,17 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 _buildUserInfoRow(Icons.badge, '역할', _user!.role),
                 if (_user!.oauthProvider != null && _user!.oauthProvider!.isNotEmpty)
                   _buildUserInfoRow(Icons.login, 'OAuth 제공자', _user!.oauthProvider!),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: Text('닉네임 변경', style: GoogleFonts.gaegu()),
+                      onPressed: _changeNickname,
+                    ),
+                  ],
+                ),
               ],
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
               ListTile(
                 leading: const Icon(Icons.settings, color: Color(0xFF2ECC71)),
                 title: Text("설정", style: GoogleFonts.gaegu()),
@@ -217,6 +365,11 @@ class _MyPageScreenState extends State<MyPageScreen> {
                 leading: const Icon(Icons.logout, color: Color(0xFF2ECC71)),
                 title: Text("로그아웃", style: GoogleFonts.gaegu()),
                 onTap: _logout,
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: Text("회원 탈퇴", style: GoogleFonts.gaegu(color: Colors.red)),
+                onTap: _deleteAccount,
               ),
             ],
           ),
