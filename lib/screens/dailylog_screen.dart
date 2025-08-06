@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/diary_response_model.dart';
+import '../models/user_plant_model.dart';
 import '../services/diary_api_service.dart';
 import 'note_screen.dart';
 import 'diary_detail_screen.dart';
@@ -27,15 +28,18 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
   bool _isLoading = true;
   String? _error;
 
+  // ⭐️ 추가: 식물 목록, 현재 선택한 필터(식물)
+  List<UserPlantResponse> _myPlants = [];
+  int? _selectedPlantId; // null이면 전체보기
+
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    _fetchDiaries();
+    _fetchPlantsAndDiaries();
   }
 
-  // ✅ "createdAt" → "diaryDate"로 캘린더에 매핑!
-  Future<void> _fetchDiaries() async {
+  Future<void> _fetchPlantsAndDiaries() async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -48,10 +52,23 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
         baseUrl: "http://172.16.231.57:8080",
         headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
       ));
-
       final apiService = DiaryApiService(dio);
-      final diaries = await apiService.getAllMyDiaries();
 
+      // 1) 내 식물 목록 가져오기 (필터 드롭다운용)
+      final userPlantsResponse = await dio.get('/api/user-plants');
+      final myPlants = (userPlantsResponse.data as List)
+          .map((e) => UserPlantResponse.fromJson(e))
+          .toList();
+
+      // 2) 일지 목록 가져오기 (필터 반영)
+      List<DiaryResponse> diaries;
+      if (_selectedPlantId == null) {
+        diaries = await apiService.getAllMyDiaries();
+      } else {
+        diaries = await apiService.getDiariesByUserPlant(_selectedPlantId!);
+      }
+
+      // 3) 날짜별로 그룹핑
       final Map<DateTime, List<DiaryResponse>> events = {};
       for (final diary in diaries) {
         final diaryDateStr = diary.diaryDate;
@@ -63,7 +80,10 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
         }
       }
 
-      if (mounted) setState(() => _events = events);
+      if (mounted) setState(() {
+        _myPlants = myPlants;
+        _events = events;
+      });
     } on DioException catch (e) {
       if (mounted) {
         if (e.response?.statusCode == 401) {
@@ -77,9 +97,17 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
     }
   }
 
-
   List<DiaryResponse> _getEventsForDay(DateTime day) {
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
+  }
+
+  // ⭐️ 필터 드롭다운 변경
+  void _onPlantFilterChanged(int? userPlantId) async {
+    setState(() {
+      _selectedPlantId = userPlantId;
+      _isLoading = true;
+    });
+    await _fetchPlantsAndDiaries();
   }
 
   @override
@@ -97,6 +125,10 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
           children: [
             _buildCalendarCard(),
             _buildDateHeader(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: _buildPlantFilterDropdown(),
+            ),
             Expanded(child: _buildEventList()),
           ],
         ),
@@ -168,6 +200,47 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
     );
   }
 
+  // ⭐️ 식물별/전체 필터 드롭다운
+  Widget _buildPlantFilterDropdown() {
+    return DropdownButtonFormField<int>(
+      value: _selectedPlantId,
+      isExpanded: true,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.green.withOpacity(0.05),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      ),
+      hint: Text("전체 보기", style: GoogleFonts.gaegu(color: Colors.grey[700])),
+      items: [
+        DropdownMenuItem<int>(
+          value: null,
+          child: Text("전체 보기", style: GoogleFonts.gaegu(fontWeight: FontWeight.bold)),
+        ),
+        ..._myPlants.map((plant) => DropdownMenuItem<int>(
+          value: plant.userPlantId,
+          child: Row(
+            children: [
+              if (plant.userPlantImageUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(plant.userPlantImageUrl!, width: 24, height: 24, fit: BoxFit.cover),
+                )
+              else
+                const Icon(Icons.eco_rounded, size: 22, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(plant.plantNickname ?? plant.plantName ?? '', style: GoogleFonts.gaegu()),
+            ],
+          ),
+        )),
+      ],
+      onChanged: (value) {
+        _onPlantFilterChanged(value);
+      },
+      style: GoogleFonts.gaegu(color: Colors.black87),
+    );
+  }
+
   Widget _buildEventList() {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
@@ -218,26 +291,39 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
               ),
             ),
             title: Text(diary.title,
-                style:
-                GoogleFonts.gaegu(fontWeight: FontWeight.bold, fontSize: 16)),
+                style: GoogleFonts.gaegu(fontWeight: FontWeight.bold, fontSize: 16)),
             subtitle: Text(diary.content ?? '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.gaegu()),
             onTap: () async {
-              // ✅ 상세 보기 화면으로 이동
+              final prefs = await SharedPreferences.getInstance();
+              final accessToken = prefs.getString('accessToken');
+              final dio = Dio(BaseOptions(
+                baseUrl: "http://172.16.231.57:8080",
+                headers: {HttpHeaders.authorizationHeader: 'Bearer $accessToken'},
+              ));
+              final apiService = DiaryApiService(dio);
+
+              DiaryResponse detail;
+              try {
+                detail = await apiService.getDiary(diary.diaryId!);
+              } catch (e) {
+                detail = diary; // 실패시 기존거
+              }
+
               final result = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => DiaryDetailScreen(diary: diary),
+                  builder: (_) => DiaryDetailScreen(diary: detail), // ✅ non-null!
                 ),
               );
 
-              // 상세 화면에서 수정/삭제가 발생했으면 새로고침
               if (result == true) {
-                _fetchDiaries();
+                _fetchPlantsAndDiaries();
               }
             },
+
           ),
         );
       },
@@ -253,7 +339,7 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
               builder: (_) => NoteScreen(selectedDate: _selectedDay!)),
         );
         if (result == true) {
-          _fetchDiaries();
+          _fetchPlantsAndDiaries();
         }
       },
       backgroundColor: const Color(0xFF2ECC71),

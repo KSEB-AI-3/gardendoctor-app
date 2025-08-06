@@ -15,6 +15,7 @@ class UserPlantResponse {
   final String? species;
   final String? season;
   final String? plantImageUrl;
+  final int? gardenUniqueId;  // ✅ 추가
 
   UserPlantResponse({
     this.userPlantId,
@@ -28,6 +29,7 @@ class UserPlantResponse {
     this.species,
     this.season,
     this.plantImageUrl,
+    this.gardenUniqueId,   // ✅ 생성자에 추가
   });
 
   factory UserPlantResponse.fromJson(Map<String, dynamic> json) => _$UserPlantResponseFromJson(json);

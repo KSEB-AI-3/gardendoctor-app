@@ -19,6 +19,7 @@ UserPlantResponse _$UserPlantResponseFromJson(Map<String, dynamic> json) =>
       species: json['species'] as String?,
       season: json['season'] as String?,
       plantImageUrl: json['plantImageUrl'] as String?,
+      gardenUniqueId: (json['gardenUniqueId'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$UserPlantResponseToJson(UserPlantResponse instance) =>
@@ -34,4 +35,5 @@ Map<String, dynamic> _$UserPlantResponseToJson(UserPlantResponse instance) =>
       'species': instance.species,
       'season': instance.season,
       'plantImageUrl': instance.plantImageUrl,
+      'gardenUniqueId': instance.gardenUniqueId,
     };
